@@ -1,74 +1,138 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Overlay Golf GPS</title>
     <style>
-        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
-        #container { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; height: 100vh; width: 100vw; }
         
-        /* Ton image de Guérande */
+        #container { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: rgba(0,0,0,0.1); /* Léger fond pour voir la zone sur PRISM */
+        }
+        
+        /* Image de Vernantois */
         #map { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-        /* Le marqueur du joueur */
+        /* Marqueur du joueur */
         #player {
             position: absolute;
-            width: 15px;
-            height: 15px;
-            background: #ff0000; /* Rouge vif */
+            width: 18px;
+            height: 18px;
+            background: #ff0000;
             border: 2px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
             transform: translate(-50%, -50%);
-            transition: all 0.8s ease; /* Animation fluide */
+            transition: all 1s linear; /* Animation plus fluide pour le déplacement */
             z-index: 10;
+            display: none; /* Caché tant qu'on n'a pas de signal */
         }
 
-        #debug { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; font-size: 10px; border-radius: 5px; }
+        /* Bouton pour forcer l'activation du GPS sur mobile */
+        #startBtn {
+            position: absolute;
+            z-index: 100;
+            padding: 15px 25px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+
+        #debug { 
+            position: absolute; 
+            bottom: 5px; 
+            left: 5px; 
+            background: rgba(0,0,0,0.6); 
+            color: #fff; 
+            padding: 3px 8px; 
+            font-size: 10px; 
+            border-radius: 3px; 
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+
     <div id="container">
+        <button id="startBtn">DÉMARRER GPS</button>
         <img id="map" src="vernantois.jpg">
-        <div id="player" style="left: 50%; top: 50%;"></div>
+        <div id="player"></div>
     </div>
-    <div id="debug" id="status">En attente du GPS...</div>
+    
+    <div id="debug">Statut : Cliquez sur Démarrer</div>
 
     <script>
-
+        // CONFIGURATION VERNANTOIS (JURA)
         const bounds = {
-          latMax: 46.6340, // Haut de la carte
-          latMin: 46.6230, // Bas de la carte
-          lonMin: 5.5700,  // Gauche de la carte
-          lonMax: 5.5880   // Droite de la carte
+            latMax: 46.6340, 
+            latMin: 46.6230, 
+            lonMin: 5.5700,  
+            lonMax: 5.5880   
         };
+
         const player = document.getElementById('player');
         const debug = document.getElementById('debug');
+        const startBtn = document.getElementById('startBtn');
 
         function updatePos(position) {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
 
             // Calcul de la position relative (0 à 1)
             let x = (lon - bounds.lonMin) / (bounds.lonMax - bounds.lonMin);
             let y = (bounds.latMax - lat) / (bounds.latMax - bounds.latMin);
 
-            // Sécurité pour ne pas sortir de l'image
+            // Conversion en pourcentage (0-100)
             x = Math.max(0, Math.min(1, x)) * 100;
             y = Math.max(0, Math.min(1, y)) * 100;
 
+            // Mise à jour visuelle
+            player.style.display = "block";
             player.style.left = x + "%";
             player.style.top = y + "%";
             
-            debug.innerText = `Lat: ${lat.toFixed(4)} | Lon: ${lon.toFixed(4)}`;
+            debug.innerText = `GPS OK (±${Math.round(accuracy)}m) | Lat: ${lat.toFixed(4)} Lon: ${lon.toFixed(4)}`;
         }
 
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(updatePos, 
-                (err) => { debug.innerText = "Erreur GPS: " + err.message; }, 
-                { enableHighAccuracy: true, maximumAge: 0 }
-            );
+        function handleError(err) {
+            let msg = "";
+            switch(err.code) {
+                case 1: msg = "Permission refusée. Vérifiez les réglages du tel."; break;
+                case 2: msg = "Position non disponible (Pas de signal)."; break;
+                case 3: msg = "Délai d'attente dépassé."; break;
+                default: msg = "Erreur inconnue : " + err.message;
+            }
+            debug.innerText = "Erreur : " + msg;
+            alert(msg);
         }
+
+        // Lancement au clic sur le bouton
+        startBtn.addEventListener('click', () => {
+            startBtn.style.display = 'none';
+            debug.innerText = "Recherche du signal...";
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(updatePos, handleError, {
+                    enableHighAccuracy: true, // IMPORTANT : Force l'utilisation du GPS
+                    timeout: 15000,
+                    maximumAge: 0
+                });
+            } else {
+                debug.innerText = "GPS non supporté par ce mobile.";
+            }
+        });
     </script>
 </body>
 </html>
