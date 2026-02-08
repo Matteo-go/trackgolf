@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
+        #container { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        
+        /* Ton image de Guérande */
+        #map { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        /* Le marqueur du joueur */
+        #player {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: #ff0000; /* Rouge vif */
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transform: translate(-50%, -50%);
+            transition: all 0.8s ease; /* Animation fluide */
+            z-index: 10;
+        }
+
+        #debug { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; font-size: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <img id="map" src="vernantois.jpg">
+        <div id="player" style="left: 50%; top: 50%;"></div>
+    </div>
+    <div id="debug" id="status">En attente du GPS...</div>
+
+    <script>
+
+        const bounds = {
+          latMax: 46.6340, // Haut de la carte
+          latMin: 46.6230, // Bas de la carte
+          lonMin: 5.5700,  // Gauche de la carte
+          lonMax: 5.5880   // Droite de la carte
+        };
+        const player = document.getElementById('player');
+        const debug = document.getElementById('debug');
+
+        function updatePos(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+
+            // Calcul de la position relative (0 à 1)
+            let x = (lon - bounds.lonMin) / (bounds.lonMax - bounds.lonMin);
+            let y = (bounds.latMax - lat) / (bounds.latMax - bounds.latMin);
+
+            // Sécurité pour ne pas sortir de l'image
+            x = Math.max(0, Math.min(1, x)) * 100;
+            y = Math.max(0, Math.min(1, y)) * 100;
+
+            player.style.left = x + "%";
+            player.style.top = y + "%";
+            
+            debug.innerText = `Lat: ${lat.toFixed(4)} | Lon: ${lon.toFixed(4)}`;
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(updatePos, 
+                (err) => { debug.innerText = "Erreur GPS: " + err.message; }, 
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
+        }
+    </script>
+</body>
+</html>
